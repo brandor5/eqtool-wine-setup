@@ -136,19 +136,50 @@ smooth fill, in both the Triggers window and the overlay timer bars.
 [brandor5/EqTool, branch `fix/proton-overlay-stability`](https://github.com/brandor5/EqTool/tree/fix/proton-overlay-stability)
 — fixes the progress bars and carries a few other changes, documented in
 [FORK.md](https://github.com/brandor5/EqTool/blob/fix/proton-overlay-stability/FORK.md).
-It has no releases; builds come from CI:
+It has no releases, so builds come from CI, which you can reach either through
+a browser or with the `gh` CLI.
+
+*From the browser:*
+
+1. Open
+   [the Actions tab](https://github.com/brandor5/EqTool/actions/workflows/build-windows.yml)
+   and click the topmost green run on `fix/proton-overlay-stability`.
+2. Scroll to **Artifacts** at the bottom and download **EQTool-Linux-build**.
+   GitHub serves it as a zip wrapping the artifact.
+3. Unzip it somewhere temporary:
+
+```bash
+unzip ~/Downloads/EQTool-Linux-build.zip -d /tmp/eqtool-new
+```
+
+Downloading artifacts requires being signed in to GitHub — they are not
+available anonymously, even on a public repository.
+
+*With the `gh` CLI:*
 
 ```bash
 gh run list --repo brandor5/EqTool --limit 1
 gh run download <run-id> --repo brandor5/EqTool \
   -n EQTool-Linux-build -D /tmp/eqtool-new
-
-mkdir -p ~/storage/Games/EQTool
-cp -r /tmp/eqtool-new/* ~/storage/Games/EQTool/
 ```
 
-Set `eqtool_install_dir` (Ansible) or `EQTOOL_DIR` (the launcher) if you put it
-somewhere other than `~/storage/Games/EQTool`.
+Then, either way — put it wherever you keep Windows applications. The rest of
+this guide refers to that location as `$EQTOOL_DIR`:
+
+```bash
+EQTOOL_DIR=~/Games/EqTool          # anywhere you like
+
+mkdir -p "$EQTOOL_DIR"
+cp -r /tmp/eqtool-new/* "$EQTOOL_DIR"/
+```
+
+Check that `/tmp/eqtool-new` contains `EQTool.exe` directly rather than a nested
+folder before copying — the browser zip and `gh run download` lay things out the
+same way, but an extra directory level is easy to miss and leaves you with a
+launcher that cannot find the executable.
+
+Whatever you choose, tell the tooling about it: `eqtool_install_dir` for
+Ansible, or `EQTOOL_DIR` for the launcher script below.
 
 **Extract over the top; never delete the directory first.** `settings.json`,
 `Errors.txt` and `maps/` live beside the executable, so `rm -rf` takes your
@@ -163,7 +194,8 @@ cat > ~/.local/bin/eqtool <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-EQTOOL_DIR="${EQTOOL_DIR:-$HOME/storage/Games/EQTool}"
+# Change this to wherever you installed it in step 5.
+EQTOOL_DIR="${EQTOOL_DIR:-$HOME/Games/EqTool}"
 export WINEPREFIX="${WINEPREFIX:-$HOME/.wine-eqtool}"
 
 # wintab32 and winebus enumerate XInput devices and ask them for button
@@ -315,7 +347,7 @@ it was built from, e.g. `Linux1.0.0.0 (1718976d)`. A locally built copy shows
 **Confirm you are on real .NET and not wine-mono:**
 
 ```bash
-WINEPREFIX=~/.wine-eqtool WINEDEBUG=+loaddll wine ~/storage/Games/EQTool/EQTool.exe 2>&1 \
+WINEPREFIX=~/.wine-eqtool WINEDEBUG=+loaddll wine "$EQTOOL_DIR/EQTool.exe" 2>&1 \
   | grep -icE "wine-mono"     # want 0
 ```
 

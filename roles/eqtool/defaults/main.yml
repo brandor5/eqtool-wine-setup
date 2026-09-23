@@ -1,8 +1,9 @@
 ---
-# Where EQTool.exe lives. Not managed by this role - the build comes from CI and
-# is extracted here by hand, and settings.json lives alongside the exe, so the
-# role must never clean this directory.
-eqtool_install_dir: "{{ ansible_env.HOME }}/storage/Games/EQTool"
+# Where EQTool.exe lives. Set this to wherever you extracted the build; the
+# default is only a reasonable guess. Not managed by this role - the build comes
+# from a release or a CI artifact and is extracted by hand, and settings.json
+# lives alongside the exe, so the role must never clean this directory.
+eqtool_install_dir: "{{ ansible_env.HOME }}/Games/EqTool"
 
 # Wine prefix dedicated to EqTool. Kept separate from ~/.wine so a change here
 # cannot disturb anything else running under Wine.
