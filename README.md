@@ -14,6 +14,31 @@ Prefer to do it by hand, or need to debug one step? **[MANUAL.md](MANUAL.md)**
 is the same process written out, with a symptom → cause → fix table for the
 things that commonly go wrong.
 
+## Which build
+
+This sets up the *environment*. It does not install EqTool itself — point
+`eqtool_install_dir` at wherever you put it.
+
+**A stock [upstream](https://github.com/smasherprog/EqTool) release works** once
+the prefix is right, with one visible flaw: WPF's themed progress bar draws as a
+row of disconnected blocks under Wine instead of a smooth fill, which affects
+both the Triggers window and the overlay timer bars.
+
+**[This fork](https://github.com/brandor5/EqTool/tree/fix/proton-overlay-stability)**
+fixes that, and carries a few other Linux-specific changes plus some bug fixes
+that are not Linux-specific at all. See
+**[FORK.md](https://github.com/brandor5/EqTool/blob/fix/proton-overlay-stability/FORK.md)**
+for exactly what differs and why. Builds come from its CI:
+
+```bash
+gh run list --repo brandor5/EqTool --limit 1
+gh run download <run-id> --repo brandor5/EqTool -n EQTool-Linux-build -D /tmp/eqtool
+```
+
+Upstream is the canonical project and the place to file issues about EqTool
+itself; the fork exists because nobody upstream runs Linux, so the Linux build
+configuration they ship is untested.
+
 ```
 site.yml            the play
 roles/eqtool/       prefix, launcher, desktop entry, tools

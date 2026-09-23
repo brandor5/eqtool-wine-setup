@@ -124,8 +124,19 @@ All four must exist. If `mscoree.dll` is missing, nothing will launch.
 
 ## 5. Install the build
 
-Either unzip an upstream release, or — for the Linux fork, which fixes the
-progress bar rendering — pull a build artifact from its CI:
+Two options.
+
+**Stock upstream** — grab the Linux zip from
+[smasherprog/EqTool releases](https://github.com/smasherprog/EqTool/releases)
+and unzip it. This works once the prefix is set up, with one visible flaw: WPF's
+themed progress bar renders as disconnected blocks under Wine rather than a
+smooth fill, in both the Triggers window and the overlay timer bars.
+
+**The Linux fork** —
+[brandor5/EqTool, branch `fix/proton-overlay-stability`](https://github.com/brandor5/EqTool/tree/fix/proton-overlay-stability)
+— fixes the progress bars and carries a few other changes, documented in
+[FORK.md](https://github.com/brandor5/EqTool/blob/fix/proton-overlay-stability/FORK.md).
+It has no releases; builds come from CI:
 
 ```bash
 gh run list --repo brandor5/EqTool --limit 1
