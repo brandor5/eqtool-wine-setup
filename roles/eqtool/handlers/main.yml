@@ -1,0 +1,14 @@
+---
+# Both are best effort: GNOME notices changes on its own before long, and
+# neither binary is guaranteed to be present.
+- name: Update desktop database
+  ansible.builtin.command:
+    argv: [update-desktop-database, "{{ eqtool_desktop_dir }}"]
+  failed_when: false
+  changed_when: false
+
+- name: Update icon cache
+  ansible.builtin.command:
+    argv: [gtk-update-icon-cache, -f, -t, "{{ ansible_env.HOME }}/.local/share/icons/hicolor"]
+  failed_when: false
+  changed_when: false

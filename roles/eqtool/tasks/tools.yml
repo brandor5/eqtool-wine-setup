@@ -1,0 +1,25 @@
+---
+# Kept outside the role so they stay usable on their own - they were written to
+# be run by hand mid-incident, not only through Ansible.
+- name: Check the diagnostic scripts are present
+  ansible.builtin.stat:
+    path: "{{ eqtool_tools_src }}/{{ item }}"
+  loop: "{{ eqtool_tools }}"
+  register: eqtool_tool_stat
+  delegate_to: localhost
+
+- name: Fail when a diagnostic script is missing
+  ansible.builtin.fail:
+    msg: >-
+      Missing {{ eqtool_tool_stat.results | rejectattr('stat.exists')
+                 | map(attribute='item') | list | join(', ') }}
+      under {{ eqtool_tools_src }}. Set eqtool_tools_src to wherever the tools
+      directory lives.
+  when: eqtool_tool_stat.results | rejectattr('stat.exists') | list | length > 0
+
+- name: Install the diagnostic scripts
+  ansible.builtin.copy:
+    src: "{{ eqtool_tools_src }}/{{ item }}"
+    dest: "{{ eqtool_bin_dir }}/{{ item }}"
+    mode: "0755"
+  loop: "{{ eqtool_tools }}"

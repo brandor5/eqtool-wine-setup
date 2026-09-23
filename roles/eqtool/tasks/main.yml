@@ -1,0 +1,20 @@
+---
+- name: Install wine and winetricks
+  become: true
+  ansible.builtin.package:
+    name: "{{ eqtool_packages }}"
+    state: present
+  when: eqtool_install_packages | bool
+  tags: [eqtool, packages]
+
+- name: Build the Wine prefix
+  ansible.builtin.import_tasks: prefix.yml
+  tags: [eqtool, prefix]
+
+- name: Install the launcher, icon and desktop entry
+  ansible.builtin.import_tasks: desktop.yml
+  tags: [eqtool, desktop]
+
+- name: Install the diagnostic scripts
+  ansible.builtin.import_tasks: tools.yml
+  tags: [eqtool, tools]

@@ -1,0 +1,126 @@
+---
+# Every wine invocation in this file needs the same environment. Setting it on
+# the block rather than per task keeps them from drifting apart.
+- name: Configure the Wine prefix
+  environment:
+    WINEPREFIX: "{{ eqtool_wineprefix }}"
+    WINEARCH: "{{ eqtool_winearch }}"
+    WINEDEBUG: "-all"
+    DISPLAY: "{{ lookup('env', 'DISPLAY') | default(':0', true) }}"
+  block:
+
+    - name: Check whether the prefix already exists
+      ansible.builtin.stat:
+        path: "{{ eqtool_wineprefix }}/system.reg"
+      register: eqtool_prefix_stat
+
+    # Overriding mscoree and mshtml to nothing suppresses the wine-mono and
+    # wine-gecko installer prompts. This matters more than it looks: doing it
+    # the other way round - letting wine-mono install and removing it later -
+    # is what left a Proton prefix with no runtime at all and an unlaunchable
+    # application.
+    - name: Create the prefix without wine-mono or wine-gecko
+      ansible.builtin.command:
+        argv: [wineboot, --init]
+      environment:
+        WINEDLLOVERRIDES: "mscoree,mshtml="
+      when: not eqtool_prefix_stat.stat.exists
+      changed_when: true
+
+    - name: Wait for wineserver to settle
+      ansible.builtin.command:
+        argv: [wineserver, --wait]
+      when: not eqtool_prefix_stat.stat.exists
+      changed_when: false
+
+    # winetricks records one verb per line here, which is the only reliable way
+    # to tell what a prefix already has.
+    - name: Read the winetricks log
+      ansible.builtin.slurp:
+        src: "{{ eqtool_wineprefix }}/winetricks.log"
+      register: eqtool_wt_log
+      failed_when: false
+
+    - name: Determine which verbs are already installed
+      ansible.builtin.set_fact:
+        eqtool_installed_verbs: >-
+          {{ (eqtool_wt_log.content | b64decode).splitlines()
+             if eqtool_wt_log.content is defined else [] }}
+
+    # dotnet48 runs a real Microsoft installer and takes 10-20 minutes. It
+    # reports failure for post-install steps Wine does not implement (ngen,
+    # performance counters, service registration) even when the assemblies land
+    # correctly, so its exit status is not evidence of anything - the verify
+    # task below is.
+    - name: Install winetricks verbs
+      ansible.builtin.command:
+        argv: [winetricks, -q, "{{ item }}"]
+      loop: "{{ eqtool_winetricks_verbs }}"
+      when: item not in eqtool_installed_verbs
+      changed_when: true
+      register: eqtool_winetricks_run
+      failed_when: false
+
+    # Both verbs are verified by their artefacts rather than by exit status,
+    # because winetricks failing tells us nothing either way: the dotnet48
+    # installer reports failure for post-install steps Wine does not implement
+    # even when the assemblies landed correctly, and the loop above cannot fail
+    # the play or a cosmetic error would stop a working install.
+    - name: Verify the prefix has everything EqTool needs
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+      loop:
+        - path: "{{ eqtool_wineprefix }}/drive_c/windows/system32/mscoree.dll"
+          why: "the .NET shim - without it EQTool.exe cannot load at all (c0000135)"
+        - path: "{{ eqtool_wineprefix }}/drive_c/windows/Microsoft.NET/Framework64/v4.0.30319/clr.dll"
+          why: "the 64-bit CLR"
+        - path: "{{ eqtool_wineprefix }}/drive_c/windows/Microsoft.NET/Framework64/v4.0.30319/mscorlib.dll"
+          why: "the base class library"
+        - path: "{{ eqtool_wineprefix }}/drive_c/windows/Fonts/arial.ttf"
+          why: "corefonts - real WPF calls FailFast from TypefaceMap when no font resolves"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      register: eqtool_prefix_files
+
+    - name: Fail when the prefix is incomplete
+      ansible.builtin.fail:
+        msg: |-
+          {{ eqtool_wineprefix }} is missing files the application needs:
+          {% for f in eqtool_prefix_files.results | rejectattr('stat.exists') %}
+            {{ f.item.path }}
+              {{ f.item.why }}
+          {% endfor %}
+          Re-run with --tags prefix, or run the winetricks verb by hand to see
+          what it reports:
+            WINEPREFIX={{ eqtool_wineprefix }} winetricks dotnet48
+      when: eqtool_prefix_files.results | rejectattr('stat.exists') | list | length > 0
+
+    # reg add with /f is idempotent in effect, but querying first keeps the play
+    # honest about whether it changed anything.
+    - name: Read current registry values
+      ansible.builtin.command:
+        argv: [wine, reg, query, "{{ item.key }}", /v, "{{ item.value_name }}"]
+      loop: "{{ eqtool_registry }}"
+      register: eqtool_reg_query
+      changed_when: false
+      failed_when: false
+
+    - name: Apply registry values
+      ansible.builtin.command:
+        argv:
+          - wine
+          - reg
+          - add
+          - "{{ item.item.key }}"
+          - /v
+          - "{{ item.item.value_name }}"
+          - /t
+          - "{{ item.item.type }}"
+          - /d
+          - "{{ item.item.data }}"
+          - /f
+      loop: "{{ eqtool_reg_query.results }}"
+      loop_control:
+        label: "{{ item.item.key }}\\{{ item.item.value_name }}"
+      when: item.rc != 0 or (item.item.data not in item.stdout)
+      changed_when: true

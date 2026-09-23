@@ -1,0 +1,17 @@
+[Desktop Entry]
+# MANAGED BY ANSIBLE - edit roles/eqtool/templates/eqtool.desktop.j2
+Type=Application
+Version=1.0
+Name=EqTool
+GenericName=EverQuest Log Parser
+Comment=Parses the EverQuest log for triggers, timers, maps and DPS
+Exec={{ eqtool_bin_dir }}/eqtool
+Icon=eqtool
+Terminal=false
+Categories=Game;Utility;
+Keywords=everquest;eq;p99;pigparse;parser;triggers;timers;
+StartupNotify=false
+# Wine reports WM_CLASS from the executable name. Without a match GNOME shows a
+# second generic dash entry instead of highlighting this launcher. Check with
+# `xprop WM_CLASS` and click an EqTool window.
+StartupWMClass={{ eqtool_wm_class }}

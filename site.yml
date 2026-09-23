@@ -1,0 +1,8 @@
+---
+- name: Set up EqTool on Wine
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  roles:
+    - eqtool

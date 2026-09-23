@@ -1,0 +1,39 @@
+---
+- name: Ensure XDG directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ eqtool_bin_dir }}"
+    - "{{ eqtool_desktop_dir }}"
+    - "{{ eqtool_icon_dir }}"
+
+- name: Install the launcher
+  ansible.builtin.template:
+    src: eqtool-launcher.sh.j2
+    dest: "{{ eqtool_bin_dir }}/eqtool"
+    mode: "0755"
+
+# Extracted from EQTool/Images/logo.ico, whose first directory entry is already
+# a 256x256 PNG - so these are the original bytes, not a re-encode.
+- name: Install the icon
+  ansible.builtin.copy:
+    src: eqtool.png
+    dest: "{{ eqtool_icon_dir }}/eqtool.png"
+    mode: "0644"
+  notify: Update icon cache
+
+- name: Install the desktop entry
+  ansible.builtin.template:
+    src: eqtool.desktop.j2
+    dest: "{{ eqtool_desktop_dir }}/eqtool.desktop"
+    mode: "0644"
+  notify: Update desktop database
+
+- name: Warn when the launcher is not on PATH
+  ansible.builtin.debug:
+    msg: >-
+      {{ eqtool_bin_dir }} is not on PATH. The desktop entry still works, since
+      the session resolves Exec itself, but `eqtool` from a shell will not.
+  when: eqtool_bin_dir not in (ansible_env.PATH | default(''))

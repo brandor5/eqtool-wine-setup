@@ -1,0 +1,72 @@
+---
+# Where EQTool.exe lives. Not managed by this role - the build comes from CI and
+# is extracted here by hand, and settings.json lives alongside the exe, so the
+# role must never clean this directory.
+eqtool_install_dir: "{{ ansible_env.HOME }}/storage/Games/EQTool"
+
+# Wine prefix dedicated to EqTool. Kept separate from ~/.wine so a change here
+# cannot disturb anything else running under Wine.
+eqtool_wineprefix: "{{ ansible_env.HOME }}/.wine-eqtool"
+eqtool_winearch: win64
+
+# Set false if wine and winetricks are managed elsewhere. Installing them needs
+# root; everything else in this role is confined to $HOME.
+eqtool_install_packages: true
+eqtool_packages:
+  - wine
+  - winetricks
+
+# Verbs installed into the prefix. dotnet48 replaces wine-mono, whose WPF leaks
+# roughly 50 MB/min; corefonts is not optional either - real WPF calls FailFast
+# out of TypefaceMap.MapUnresolvedCharacters when it cannot resolve any font,
+# killing the process during startup.
+eqtool_winetricks_verbs:
+  - dotnet48
+  - corefonts
+
+# x11, not wayland. Wine's Wayland driver has no system tray support, and the
+# tray menu is the only way into this application.
+eqtool_graphics_driver: x11
+
+# Registry values applied to the prefix. Each is read before being written, so
+# re-running reports no change.
+eqtool_registry:
+  # WPF's hardware path goes through Direct3D9, which fails pixel format
+  # negotiation under Wine and renders every window black.
+  - key: 'HKCU\Software\Microsoft\Avalon.Graphics'
+    value_name: DisableHWAcceleration
+    type: REG_DWORD
+    data: "1"
+  - key: 'HKCU\Software\Wine\Drivers'
+    value_name: Graphics
+    type: REG_SZ
+    data: "{{ eqtool_graphics_driver }}"
+
+# wintab32 and winebus enumerate XInput devices and ask them for button
+# mappings. Under XWayland those device ids are recreated whenever the seat
+# changes, so a stale id raises XI_BadDevice - an unhandled X protocol error,
+# which Xlib turns into an immediate exit. EqTool uses neither tablets nor
+# controllers.
+eqtool_dll_overrides: "wintab32=d,winebus.sys=d"
+
+# fixme-all silences the noisiest channel while leaving err: and warn: intact.
+# Not -all: the 32-bit address space exhaustion and the font FailFast were both
+# err: lines, and -all would have hidden them.
+eqtool_winedebug: "fixme-all"
+
+# XDG locations for the launcher, icon and desktop entry.
+eqtool_bin_dir: "{{ ansible_env.HOME }}/.local/bin"
+eqtool_desktop_dir: "{{ ansible_env.HOME }}/.local/share/applications"
+eqtool_icon_dir: "{{ ansible_env.HOME }}/.local/share/icons/hicolor/256x256/apps"
+
+# Diagnostic scripts built while investigating; installed alongside the launcher
+# so they are on PATH when something misbehaves.
+eqtool_tools_src: "{{ playbook_dir }}/tools"
+eqtool_tools:
+  - watch-eqtool-memory.sh
+  - capture-eqtool-hang.sh
+
+# Wine reports WM_CLASS from the executable name. Without a match GNOME shows a
+# second generic dash entry instead of highlighting this launcher. Verify with
+# `xprop WM_CLASS` and click an EqTool window.
+eqtool_wm_class: "eqtool.exe"
