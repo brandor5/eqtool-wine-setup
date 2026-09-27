@@ -340,6 +340,28 @@ gdb is missing.
 | Memory climbs ~50 MB/min | Running on wine-mono, not real .NET | Step 2 |
 | Progress bars render as disconnected blocks | Stock WPF template under Wine | Use the fork build, which replaces it |
 
+**Read the log from the crash.** The launcher keeps Wine's output, one file per
+launch, newest last:
+
+```bash
+ls -1 ~/.local/state/eqtool/
+less "$(ls -1t ~/.local/state/eqtool/*.log | head -1)"
+```
+
+A .NET crash appears as a block of `err:eventlog:ReportEventW` lines carrying
+the exception type, its message and the full managed stack — that is what
+identifies the cause. Worth knowing that the application writes no crash log of
+its own: unhandled exceptions are only POSTed to pigparse, and `Errors.txt`
+comes from the auto-updater, which the fork disables. This file is the only
+local record.
+
+Ten launches are kept by default; set `EQTOOL_LOG_DIR` or `EQTOOL_LOG_KEEP`
+(`eqtool_log_dir` / `eqtool_log_keep` for Ansible) to change that.
+
+For a **hang** rather than a crash there will be nothing useful in the log,
+because the process is still alive and has not faulted. Use
+`capture-eqtool-hang.sh` while it is still running.
+
 **Check which build is running** — the tray menu's version entry shows the commit
 it was built from, e.g. `Linux1.0.0.0 (1718976d)`. A locally built copy shows
 `(local)`.

@@ -55,6 +55,18 @@ eqtool_dll_overrides: "wintab32=d,winebus.sys=d"
 # err: lines, and -all would have hidden them.
 eqtool_winedebug: "fixme-all"
 
+# The launcher keeps Wine's output, because the application itself writes no
+# local crash log: unhandled exceptions are only POSTed to pigparse, and
+# Errors.txt is written solely by the auto-updater, which is disabled here. Wine
+# stderr carries the .NET exception and its managed stack, so it is the only
+# record of why a crash happened.
+#
+# A GNOME-launched app does send stderr to the systemd user journal, but that is
+# awkward to find after the fact and mixed in with everything else.
+eqtool_log_dir: "{{ ansible_env.HOME }}/.local/state/eqtool"
+# How many launches to keep. Each is a few KB with fixme-all.
+eqtool_log_keep: 10
+
 # XDG locations for the launcher, icon and desktop entry.
 eqtool_bin_dir: "{{ ansible_env.HOME }}/.local/bin"
 eqtool_desktop_dir: "{{ ansible_env.HOME }}/.local/share/applications"

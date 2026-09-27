@@ -39,6 +39,49 @@ if [ ! -f "$EQTOOL_DIR/EQTool.exe" ]; then
     exit 1
 fi
 
+# Keep Wine's output. The application writes no local crash log of its own -
+# unhandled exceptions are only POSTed to pigparse, and Errors.txt comes from the
+# auto-updater, which is disabled - so this file is the only record of why a
+# crash happened. Wine reports a .NET crash as a block of err:eventlog lines
+# carrying the exception and its full managed stack.
+#
+# Launched from the desktop entry there is no terminal to scroll past, and while
+# GNOME does route stderr to the systemd user journal, a file per launch is far
+# easier to find afterwards.
+LOG_DIR="${EQTOOL_LOG_DIR:-{{ eqtool_log_dir }}}"
+LOG_KEEP="${EQTOOL_LOG_KEEP:-{{ eqtool_log_keep }}}"
+mkdir -p "$LOG_DIR"
+
+# Prune before adding this run's file, so LOG_KEEP is the count afterwards.
+# A non-numeric override would make the comparison below fail the script under
+# set -e, so treat anything that is not a number as "keep everything".
+case "$LOG_KEEP" in
+    '' | *[!0-9]*) LOG_KEEP=0 ;;
+esac
+
+# Globbed rather than piped from ls: with pipefail an unexpanded glob makes ls
+# exit non-zero and takes the whole script with it, which is exactly what
+# happens on the very first launch. The filenames sort lexically by date, so
+# plain glob order is oldest first.
+shopt -s nullglob
+existing_logs=("$LOG_DIR"/eqtool-*.log)
+shopt -u nullglob
+
+if [ "$LOG_KEEP" -gt 0 ] && [ "${#existing_logs[@]}" -ge "$LOG_KEEP" ]; then
+    rm -f -- "${existing_logs[@]:0:$(( ${#existing_logs[@]} - LOG_KEEP + 1 ))}"
+fi
+
+# The pid keeps two launches in the same second from sharing a file, which would
+# both conflate their output and quietly erode the number kept. The date leads,
+# so lexical order stays chronological.
+LOG="$LOG_DIR/eqtool-$(date +%Y%m%d-%H%M%S)-$$.log"
+echo "Logging to $LOG" >&2
+
+# Redirect this shell through tee, then exec: wine inherits the descriptors, so
+# output still reaches a terminal (or the journal) as well as the file, and
+# signals go straight to wine rather than through a pipeline.
+exec > >(tee -a "$LOG") 2>&1
+
 exec wine "$EQTOOL_DIR/EQTool.exe" "$@"
 
 # What the prefix carries, and why:
