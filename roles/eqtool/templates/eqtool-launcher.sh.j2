@@ -67,9 +67,13 @@ shopt -s nullglob
 existing_logs=("$LOG_DIR"/eqtool-*.log)
 shopt -u nullglob
 
+{# raw, because bash's ${#array[@]} opens with {# - which is this comment
+   delimiter, so Jinja would read the rest of the file as a comment #}
+{% raw %}
 if [ "$LOG_KEEP" -gt 0 ] && [ "${#existing_logs[@]}" -ge "$LOG_KEEP" ]; then
     rm -f -- "${existing_logs[@]:0:$(( ${#existing_logs[@]} - LOG_KEEP + 1 ))}"
 fi
+{% endraw %}
 
 # The pid keeps two launches in the same second from sharing a file, which would
 # both conflate their output and quietly erode the number kept. The date leads,
